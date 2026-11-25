@@ -1,0 +1,66 @@
+{
+  "name": "captionation-studio",
+  "productName": "Captionation Studio",
+  "version": "1.0.0",
+  "description": "Subtítulos con palabra en bold, transcripción local y exportación con fondo transparente.",
+  "author": "Manuel Aldana",
+  "license": "MIT",
+  "main": "app/main.js",
+  "scripts": {
+    "start": "electron .",
+    "vendor": "node tools/descargar-ffmpeg.js",
+    "dist": "node tools/descargar-ffmpeg.js && electron-builder --win nsis && node tools/copiar-instalador.js"
+  },
+  "devDependencies": {
+    "electron": "^45.5.0",
+    "electron-builder": "^26.18.0",
+    "iced-x86": "^1.22.0"
+  },
+  "build": {
+    "appId": "io.github.manuelcasten.captionationstudio",
+    "productName": "Captionation Studio",
+    "copyright": "© 2026 Manuel Aldana",
+    "files": [
+      "app/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor/ffmpeg",
+        "to": "ffmpeg"
+      }
+    ],
+    "electronLanguages": [
+      "es",
+      "es-419",
+      "en-US"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "Instalador Captionation Studio.exe",
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Captionation Studio",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}

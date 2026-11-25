@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' file: data: blob:; media-src file: blob: data:; font-src file: data: blob:; img-src file: data: blob:">
+<title>Captionation Studio</title>
+<style>
+  /* mismo sistema visual que el panel Captionation y manuelcasten.github.io, en negro */
+  @font-face { font-family:"Archivo Exp"; src:url("fonts/archivo-expanded-800.woff2") format("woff2"); font-weight:800; font-stretch:125%; }
+  :root { --bg:#0b0b0c; --line:#26262a; --tx:#ececee; --dim:#8b8b93; --acc:#0a5cff; --ok:#3ecf7a; --err:#ff5a4f; --yel:#ffcf33; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--tx); font:500 12px/1.45 "Montserrat", "Segoe UI", sans-serif; display:flex; flex-direction:column; overflow:hidden; }
+  .wide { font-family:"Archivo Exp", "Montserrat", sans-serif; font-weight:800; font-stretch:125%; text-transform:uppercase; letter-spacing:.01em; }
+  header { display:flex; align-items:center; gap:14px; padding:10px 16px; border-bottom:2px solid var(--tx); flex:0 0 auto; }
+  header .wide { font-size:20px; line-height:1; }
+  header small { font-size:10px; font-weight:600; color:var(--dim); flex:1; }
+  header small b { color:var(--acc); font-weight:700; }
+  main { flex:1; display:flex; min-height:0; }
+  #left { flex:1; display:flex; flex-direction:column; min-width:0; padding:12px 12px 10px 16px; gap:8px; }
+  #right { flex:0 0 400px; overflow-y:auto; padding:6px 16px 16px 14px; border-left:1px solid var(--line); }
+  #stage { position:relative; flex:1 1 55%; min-height:220px; background:#050506; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  #frame { position:relative; background:linear-gradient(160deg,#6b7780,#36424a 55%,#1f2529); }
+  #frame video, #frame canvas { position:absolute; left:0; top:0; width:100%; height:100%; }
+  #frame video { object-fit:fill; }
+  #dropHint { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--dim); text-align:center; pointer-events:none; }
+  #dropHint .wide { color:var(--tx); font-size:14px; }
+  #stage.drag { outline:2px dashed var(--acc); outline-offset:-6px; }
+  #transport { display:flex; gap:8px; align-items:center; flex:0 0 auto; }
+  #transport input[type=range] { flex:1; }
+  #tcNow { font-family:Consolas, monospace; font-size:11px; color:var(--dim); min-width:120px; text-align:right; }
+  #listWrap { flex:1 1 45%; display:flex; flex-direction:column; min-height:140px; }
+  #listHead { display:flex; gap:6px; align-items:center; margin-bottom:6px; }
+  #listHead .wide { font-size:11px; flex:1; }
+  #list { flex:1; overflow:auto; border:1px solid var(--line); background:#121214; }
+  .sub { display:flex; gap:8px; padding:5px 6px; border-bottom:1px solid #222226; align-items:center; }
+  .sub.on { background:#0a5cff26; box-shadow:inset 3px 0 0 var(--acc); }
+  .sub .n { color:var(--dim); font-size:10px; width:26px; text-align:right; flex:0 0 auto; }
+  .sub input.tm { width:76px; font-family:Consolas, monospace; font-size:11px; padding:2px 4px; flex:0 0 auto; }
+  .sub input.tm.bad { border-color:var(--err); }
+  .sub .words { flex:1; display:flex; flex-wrap:wrap; gap:3px; min-width:0; }
+  .sub input.edit { flex:1; min-width:0; }
+  .sub .ic { flex:0 0 auto; padding:2px 7px; background:none; border-color:transparent; color:var(--dim); }
+  .sub .ic:hover { color:var(--tx); background:#222; }
+  .w { padding:1px 5px; border-radius:2px; cursor:pointer; user-select:none; }
+  .w:hover { background:#333; }
+  .w.b { font-weight:800; background:#0a5cff40; color:#fff; }
+  .empty { color:var(--dim); padding:14px; text-align:center; }
+
+  details { border-top:1px solid var(--line); padding:10px 0 8px; }
+  details:first-of-type { border-top:0; }
+  summary { font-family:"Archivo Exp", "Montserrat", sans-serif; font-weight:800; font-stretch:125%; font-size:11px; letter-spacing:.04em; cursor:pointer; list-style:none; display:flex; justify-content:space-between; }
+  summary::-webkit-details-marker { display:none; }
+  summary::after { content:"+"; color:var(--acc); font-size:14px; line-height:1; }
+  details[open] summary::after { content:"−"; }
+  details[open] summary { margin-bottom:8px; }
+  .row { display:flex; gap:6px; align-items:center; margin:4px 0; flex-wrap:wrap; }
+  .row label { flex:1 1 140px; color:var(--dim); }
+  input, select, button { font:inherit; color:var(--tx); background:#141416; border:1px solid #2c2c31; border-radius:2px; padding:4px 6px; }
+  input:focus, select:focus { outline:1px solid var(--acc); border-color:var(--acc); }
+  input[type=number] { width:68px; }
+  input[type=range] { padding:0; accent-color:var(--acc); }
+  input[type=checkbox] { accent-color:var(--acc); }
+  input[type=color] { width:40px; height:24px; padding:0 2px; cursor:pointer; }
+  input[type=color].active { outline:2px solid var(--acc); outline-offset:1px; }
+  input.hex { width:84px; font-family:Consolas, monospace; font-size:11px; text-transform:uppercase; }
+  input.hex.bad { border-color:var(--err); outline:1px solid var(--err); }
+  button { cursor:pointer; background:#1d1d21; font-weight:600; }
+  button:hover { background:#28282d; }
+  button:disabled { opacity:.5; cursor:default; }
+  button.primary { background:var(--acc); border-color:var(--acc); color:#fff; font-weight:700; }
+  button.primary:hover { background:#2f76ff; }
+  button.adj { background:var(--yel); border-color:var(--yel); color:#111; font-weight:700; }
+  button.adj:hover { background:#ffdb5c; }
+  .seg { display:flex; } .seg button { flex:1; }
+  .seg button.on { background:var(--acc); border-color:var(--acc); color:#fff; }
+  .path { color:var(--dim); font-size:11px; word-break:break-all; flex:1; }
+  .hint { color:var(--dim); font-size:11px; margin:4px 0 0; }
+  .styles { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }
+  .styleCard { border:1px solid var(--line); border-radius:2px; padding:8px 4px; cursor:pointer; background:#141416; text-align:center; line-height:1.15; }
+  .styleCard.on { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc) inset; }
+  .styleCard .t { font-size:10px; color:var(--dim); margin-top:6px; }
+  .s1 { font-size:12px; } .s1 b { font-weight:800; }
+  .s2 { font-size:9px; font-weight:300; } .s2 b { display:block; font-size:14px; font-weight:900; }
+  .s3 { font-size:11px; font-weight:800; } .s3 span { background:#ffd400; color:#111; border-radius:3px; padding:0 3px; }
+  #swatches { display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
+  .sw { width:22px; height:22px; border-radius:2px; border:1px solid #0006; cursor:pointer; }
+  .sw:hover { transform:scale(1.1); }
+  .bar { height:6px; background:#141416; border:1px solid var(--line); overflow:hidden; flex:1 1 100%; }
+  .bar > div { height:100%; width:0; background:var(--acc); transition:width .2s; }
+  .msg { font-size:11px; color:var(--dim); white-space:pre-wrap; }
+  .msg.ok { color:var(--ok); } .msg.err { color:var(--err); }
+  #status { white-space:pre-wrap; font-size:11px; min-height:16px; margin-top:4px; }
+  #status.ok { color:var(--ok); } #status.err { color:var(--err); }
+  #updBar { display:none; background:var(--acc); color:#fff; padding:8px 16px; font-weight:600; align-items:center; gap:8px; }
+  #updBar.on { display:flex; }
+  #updBar span { flex:1; }
+  #updBar button { background:#fff; color:var(--acc); border-color:#fff; font-weight:800; }
+  #credit { color:var(--dim); font-size:10px; margin:12px 0 2px; border-top:2px solid var(--tx); padding-top:10px; letter-spacing:.04em; }
+  #credit b { color:var(--tx); }
+  .fmtOpt { display:flex; gap:8px; align-items:flex-start; padding:6px; border:1px solid var(--line); margin:4px 0; cursor:pointer; }
+  .fmtOpt.on { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc) inset; }
+  .fmtOpt b { display:block; }
+  .fmtOpt span { color:var(--dim); font-size:11px; }
+  ::-webkit-scrollbar { width:10px; height:10px; } ::-webkit-scrollbar-thumb { background:#2a2a30; } ::-webkit-scrollbar-track { background:transparent; }
+</style>
+</head>
+<body>
+<header>
+  <span class="wide">Captionation Studio</span>
+  <small>v<span id="verTxt"></span> · by <b>Manuel Aldana</b></small>
+  <div class="seg" id="langSeg"><button data-l="es">ES</button><button data-l="en">EN</button></div>
+</header>
+<div id="updBar"><span id="updTxt"></span><button id="updBtn">Descargar</button></div>
+<main>
+  <section id="left">
+    <div id="stage">
+      <div id="frame">
+        <video id="vid" preload="auto"></video>
+        <canvas id="pv"></canvas>
+        <div id="dropHint"><span class="wide">Abre o arrastra un video</span><span>MP4, MOV, MKV, WEBM, MP3, WAV…</span></div>
+      </div>
+    </div>
+    <div id="transport">
+      <button id="btnPlay" title="Reproducir / pausa (barra espaciadora)">▶</button>
+      <input type="range" id="scrub" min="0" max="1000" step="1" value="0">
+      <span id="tcNow">00:00.00 / 00:00.00</span>
+      <div class="seg" id="pvFmt" title="Formato cuando solo hay audio"><button data-f="v">9:16</button><button data-f="h">16:9</button></div>
+    </div>
+    <div id="listWrap">
+      <div id="listHead">
+        <span class="wide" id="listTitle">Subtítulos</span>
+        <button id="btnAdd" title="Agrega un subtítulo en la posición actual">+ Añadir</button>
+        <button id="btnSrt">Guardar .srt</button>
+      </div>
+      <div id="list"></div>
+      <p class="hint">Clic en una palabra = bold / regular · ✎ = editar texto (*asteriscos* = bold) · los tiempos se editan en las casillas (min:seg.cc) · clic en la fila = ir a ese momento.</p>
+    </div>
+  </section>
+
+  <aside id="right">
+    <details open>
+      <summary>0 · Video y transcripción</summary>
+      <div class="row"><button id="btnOpen" class="primary">Abrir video o audio…</button><span class="path" id="mediaInfo">—</span></div>
+      <div class="row"><label>Modelo</label>
+        <select id="wModel">
+          <option value="small">Small (264 MB) · rápido</option>
+          <option value="medium" selected>Medium (823 MB) · muy preciso</option>
+          <option value="turbo">Large v3 Turbo (874 MB) · el más preciso</option>
+        </select></div>
+      <div class="row"><label>Idioma</label>
+        <select id="wLang"><option value="es">Español</option><option value="en">Inglés</option><option value="pt">Portugués</option><option value="auto">Detectar</option></select></div>
+      <div class="row"><label>Máx. caracteres por subtítulo</label><input type="number" id="wMax" min="8" step="1" value="26"></div>
+      <div class="row"><label>Palabras de marca (para que las escriba bien)</label><input type="text" id="wPrompt" style="flex:1 1 100%" placeholder="mimarca, producto, Ana"></div>
+      <div class="row"><button class="primary" id="btnWhisper">Transcribir</button><button id="btnWhisperStop" style="display:none">Cancelar</button></div>
+      <div class="row"><div class="bar"><div id="wBar"></div></div></div>
+      <div id="wLive" style="opacity:.75;font-style:italic;margin:4px 0;min-height:1em"></div>
+      <div id="wStatus" class="msg">Transcribe el audio en esta PC (sin internet). La primera vez descarga el motor y el modelo; después ya no.</div>
+    </details>
+
+    <details open>
+      <summary>1 · Subtítulos</summary>
+      <div class="row"><button id="btnTxt">Cargar .txt / .srt</button><span class="path" id="txtInfo">—</span></div>
+      <div class="row">
+        <label>Negritas automáticas</label>
+        <select id="rule">
+          <option value="phrase">Frase clave (automático)</option>
+          <option value="keyword">Solo 1 palabra clave</option>
+          <option value="lastN">Últimas N palabras</option>
+          <option value="allButFirst">Todo menos la 1ª palabra</option>
+          <option value="list">Palabras de mi lista</option>
+          <option value="none">Ninguna</option>
+        </select>
+      </div>
+      <div class="row" id="rowN"><label>N</label><input type="number" id="ruleN" min="1" value="2"></div>
+      <div class="row" id="rowList"><label>Lista (separada por comas)</label><input type="text" id="ruleList" style="flex:1" placeholder="agua, filtro, mimarca"></div>
+      <div class="row"><button id="btnRule">Aplicar regla a todo</button><label style="flex:0 0 auto"><input type="checkbox" id="caps"> MAYÚSCULAS</label></div>
+    </details>
+
+    <details open>
+      <summary>2 · Estilo de edición y marca</summary>
+      <div class="styles">
+        <div class="styleCard" data-card="clasico"><div class="s1">viva <b>la vida loca</b></div><div class="t">Clásico</div></div>
+        <div class="styleCard" data-card="tipo"><div class="s2">Si tiene<b>virus</b>o alguna</div><div class="t">Resalte al centro</div></div>
+        <div class="styleCard" data-card="karaoke"><div class="s3">LA <span>VIDA</span> LOCA</div><div class="t">Karaoke</div></div>
+      </div>
+      <input type="hidden" id="fontReg"><input type="hidden" id="fontBold">
+      <div class="row" style="margin-top:8px"><label>Fuente regular</label><select class="fontSel" data-for="fontReg" style="flex:1;min-width:0"></select></div>
+      <div class="row"><label>Fuente bold</label><select class="fontSel" data-for="fontBold" style="flex:1;min-width:0"></select></div>
+      <div class="row"><button id="btnFonts">Actualizar lista de fuentes</button><span class="path" id="fontInfo"></span></div>
+      <div class="row" style="margin-top:8px"><label>Preset de marca</label><select id="preset" style="flex:1"><option value="">— ninguno —</option></select></div>
+      <div class="row">
+        <input type="text" id="presetName" placeholder="Nombre (ej. MiMarca)" style="flex:1">
+        <button id="btnPresetSave">Guardar</button>
+        <button id="btnPresetDel" title="Borrar el preset elegido">Borrar</button>
+      </div>
+      <div class="row"><button id="btnPresetExport">Exportar marcas…</button><button id="btnPresetImport">Importar marcas…</button></div>
+      <p class="hint">Importa el archivo .sbmarca que exportaste desde el panel Captionation de Premiere / After Effects.</p>
+    </details>
+
+    <details open>
+      <summary>3 · Texto y animación</summary>
+      <div class="row"><label>Alineación</label>
+        <div class="seg" id="alignSeg"><button data-al="1">Izquierda</button><button data-al="2">Centro</button><button data-al="3">Derecha</button></div></div>
+      <div class="row"><label>Animación de entrada</label>
+        <select id="estilo">
+          <option value="1">Pop (escala)</option>
+          <option value="2">Subir</option>
+          <option value="3">Fade</option>
+          <option value="4">Desenfoque</option>
+          <option value="5">Máquina de escribir</option>
+          <option value="6">Caer desde arriba</option>
+          <option value="7">Zoom (desde grande)</option>
+        </select></div>
+      <div class="row"><label>Retraso entre palabras (frames)</label><input type="number" id="retraso" min="0" step="1" value="2"></div>
+      <div class="row"><label>Duración de la entrada (frames)</label><input type="number" id="vel" min="1" step="1" value="6"></div>
+      <div class="row"><label>Tamaño de letra</label><input type="number" id="tam" min="10" step="1" value="85"></div>
+      <div class="row"><label>Escala del bold (%)</label><input type="number" id="esc" min="50" step="5" value="100"></div>
+      <div class="row"><label>Interletrado</label><input type="number" id="track2" step="5" value="-40"></div>
+      <div class="row"><label>Posición horizontal (%)</label><input type="number" id="posX" min="0" max="100" step="1" value="50"></div>
+      <div class="row"><label>Posición vertical (%)</label><input type="number" id="posY" min="0" max="100" step="1" value="68"></div>
+      <div class="row"><label><input type="checkbox" id="safeZone" checked> Respetar zona segura TikTok/Reels (vertical)</label></div>
+      <div class="row"><label>Caracteres por línea</label><input type="number" id="cpl" min="5" step="1" value="18"></div>
+    </details>
+
+    <details open>
+      <summary>4 · Resaltar la palabra que se dice</summary>
+      <div class="row"><label>Modo</label>
+        <select id="kar"><option value="0">No</option><option value="1">Caja de color</option><option value="2">Solo cambiar color</option></select></div>
+      <div class="row"><label>Color de la palabra activa</label><input type="color" class="col" id="colAct" value="#111111"></div>
+      <div class="row"><label>Color de la caja</label><input type="color" class="col" id="colCaja" value="#ffd400"></div>
+      <div class="row"><label>Margen de la caja (px)</label><input type="number" id="cajaM" min="0" step="2" value="12"></div>
+      <div class="row"><label>Redondeo de la caja (px)</label><input type="number" id="cajaR" min="0" step="2" value="14"></div>
+    </details>
+
+    <details open>
+      <summary>5 · Colores de marca</summary>
+      <div class="row"><label>Regular</label><input type="color" class="col" id="colReg" value="#ffffff">
+                       <label style="flex:0 0 auto">Bold</label><input type="color" class="col" id="colBold" value="#ffffff"></div>
+      <div class="row"><label>Borde (grosor px)</label><input type="number" id="bordeW" min="0" step="1" value="0"><input type="color" class="col" id="colBorde" value="#000000"></div>
+      <div class="row" style="align-items:flex-start"><div id="swatches"></div><button id="btnSwAdd" title="Guarda el color marcado como muestra">+ Muestra</button></div>
+      <p class="hint">Elige un cuadro de color (queda marcado en azul) y haz clic en una muestra. Clic derecho en una muestra = borrarla.</p>
+    </details>
+
+    <details>
+      <summary>6 · Efectos y fondo</summary>
+      <div class="row"><label>Brillo / glow (intensidad %)</label><input type="range" id="glowIR" min="0" max="300" step="5" value="0"><input type="number" id="glowI" min="0" max="300" step="5" value="0"></div>
+      <div class="row"><label>Brillo / glow (radio)</label><input type="number" id="glowR" min="0" step="5" value="30"></div>
+      <div class="row"><label>Sombra (%)</label><input type="number" id="sombra" min="0" max="200" step="10" value="100"></div>
+      <div class="row"><label>Opacidad del fondo (%)</label><input type="range" id="fOpR" min="0" max="100" step="1" value="0"><input type="number" id="fOp" min="0" max="100" step="1" value="0"></div>
+      <div class="row"><label>Color del fondo</label><input type="color" class="col" id="fColor" value="#000000"></div>
+      <div class="row"><label>Margen del fondo (px)</label><input type="number" id="fMargen" min="0" step="2" value="30"></div>
+      <div class="row"><label>Redondeo del fondo (px)</label><input type="number" id="fRed" min="0" step="2" value="20"></div>
+    </details>
+
+    <details open>
+      <summary>7 · Exportar</summary>
+      <div id="fmts">
+        <div class="fmtOpt" data-fmt="prores"><input type="radio" name="fmt"><div><b>ProRes 4444 .mov · transparente</b><span>Recomendado. Se importa con transparencia en EffectCraft, After Effects 2022, Premiere, DaVinci Resolve y Final Cut.</span></div></div>
+        <div class="fmtOpt" data-fmt="webm"><input type="radio" name="fmt"><div><b>WebM VP9 · transparente</b><span>Archivo mucho más liviano. Para CapCut, navegadores y editores web.</span></div></div>
+        <div class="fmtOpt" data-fmt="png"><input type="radio" name="fmt"><div><b>Secuencia PNG · transparente</b><span>Una imagen por cuadro en una carpeta. La opción más compatible (cualquier editor).</span></div></div>
+        <div class="fmtOpt" data-fmt="burn"><input type="radio" name="fmt"><div><b>Video con subtítulos quemados .mp4</b><span>El video original con los subtítulos encima, listo para subir.</span></div></div>
+      </div>
+      <div class="row"><span class="path" id="expInfo">—</span></div>
+      <div class="row"><button class="primary" id="btnExport">Exportar…</button><button id="btnExportStop" style="display:none">Cancelar</button><button id="btnShow" style="display:none">Mostrar en la carpeta</button></div>
+      <div class="row"><div class="bar"><div id="eBar"></div></div></div>
+      <div id="status"></div>
+    </details>
+    <div id="credit"><span class="wide">Captionation Studio</span> · by <b>Manuel Aldana</b> · <a href="#" id="siteLink" style="color:var(--acc)">manuelcasten.github.io</a></div>
+  </aside>
+</main>
+<script src="render.js"></script>
+<script src="app.js"></script>
+<script src="i18n.js"></script>
+</body>
+</html>
