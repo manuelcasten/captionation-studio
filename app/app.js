@@ -548,7 +548,13 @@
         const w = document.createElement('span');
         w.className = 'w' + (t.b ? ' b' : '');
         w.textContent = caps ? t.w.toLocaleUpperCase('es') : t.w;
-        w.onclick = (e) => { e.stopPropagation(); t.b = !t.b; w.classList.toggle('b', t.b); selIndex = idx; seekTo(s); changed(); };
+        // clic = bold / regular (se espera un instante por si es doble clic = editar)
+        w.onclick = (e) => {
+          e.stopPropagation();
+          if (e.detail > 1 || row._dbl) return;
+          clearTimeout(w._t);
+          w._t = setTimeout(() => { if (row._dbl) return; t.b = !t.b; w.classList.toggle('b', t.b); selIndex = idx; seekTo(s); changed(); }, 230);
+        };
         ws.appendChild(w);
       });
       const ed = document.createElement('button'); ed.className = 'ic'; ed.textContent = '✎'; ed.title = 'Editar texto';
@@ -576,6 +582,9 @@
       const del = document.createElement('button'); del.className = 'ic'; del.textContent = '×'; del.title = 'Borrar este subtítulo';
       del.onclick = (e) => { e.stopPropagation(); subs.splice(idx, 1); if (selIndex >= subs.length) selIndex = subs.length - 1; changed(); };
       row.onclick = () => { selIndex = idx; markRow(); seekTo(s); };
+      // doble clic en la fila (o en su bloque de la línea de tiempo) = editar el texto
+      row._edit = () => { row._dbl = true; ws.querySelectorAll('.w').forEach((x) => clearTimeout(x._t)); if (ws.isConnected) ed.onclick({ stopPropagation() {} }); };
+      row.ondblclick = (e) => { if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return; e.preventDefault(); row._edit(); };
       row.append(n, tIn('start'), tIn('end'), ws, ed, add, del);
       list.appendChild(row);
     });
@@ -609,6 +618,10 @@
       b.innerHTML = '<div class="h l"></div>' + s.tokens.map((t) => t.b ? '<b>' + esc(t.w) + '</b>' : esc(t.w)).join(' ') + '<div class="h r"></div>';
       b.title = fmtT(s.start) + ' → ' + fmtT(s.end);
       b.addEventListener('pointerdown', (e) => blkDrag(e, b, s));
+      b.addEventListener('dblclick', () => {
+        const row = document.querySelector('#list .sub[data-i="' + i + '"]');
+        if (row) { selIndex = i; markRow(); row.scrollIntoView({ block: 'nearest' }); row._edit(); }
+      });
       tr.appendChild(b);
     });
     moveHead();

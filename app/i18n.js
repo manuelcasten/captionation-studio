@@ -91,8 +91,8 @@
     'Abre o arrastra un video': 'Open or drop a video', 'Reproducir / pausa (barra espaciadora)': 'Play / pause (space bar)',
     'Formato cuando solo hay audio': 'Format when there is only audio', 'Subtítulos': 'Captions',
     '+ Añadir': '+ Add', 'Agrega un subtítulo en la posición actual': 'Adds a caption at the current position', 'Guardar .srt': 'Save .srt',
-    'Clic en una palabra = bold / regular · ✎ = editar texto (*asteriscos* = bold) · los tiempos se editan en las casillas (min:seg.cc) · clic en la fila = ir a ese momento.':
-      'Click a word = bold / regular · ✎ = edit text (*asterisks* = bold) · edit times in the boxes (min:sec.cc) · click a row = jump there.',
+    'Clic en una palabra = bold / regular · doble clic o ✎ = editar texto (*asteriscos* = bold) · los tiempos se editan en las casillas (min:seg.cc) · clic en la fila = ir a ese momento.':
+      'Click a word = bold / regular · double-click or ✎ = edit text (*asterisks* = bold) · edit times in the boxes (min:sec.cc) · click a row = jump there.',
     '0 · Video y transcripción': '0 · Video & transcription', 'Abrir video o audio…': 'Open video or audio…', 'Transcribir': 'Transcribe',
     'Transcribe el audio en esta PC (sin internet). La primera vez descarga el motor y el modelo; después ya no.':
       'Transcribes the audio on this computer (offline). The first time it downloads the engine and model; never again after that.',
