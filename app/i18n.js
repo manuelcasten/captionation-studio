@@ -121,8 +121,29 @@
     'No hay presets guardados para exportar.': 'There are no saved presets to export.', 'Escribe un nombre para el preset.': 'Type a name for the preset.',
     'Ese archivo no es un archivo de marcas válido.': "That isn't a valid brands file."
   };
+  // ---- Captionation Studio 1.1 ----
+  [['✂ Cortar', '✂ Cut'], ['Divide el subtítulo en el cabezal (tecla C)', 'Splits the caption at the playhead (C key)'],
+   ['Unir con el siguiente', 'Join with next'], ['Une el subtítulo elegido con el siguiente', 'Joins the selected caption with the next one'],
+   ['Arrastra un bloque para moverlo y sus bordes para cambiar la duración. Ctrl + rueda = zoom.', 'Drag a block to move it and its edges to change the duration. Ctrl + wheel = zoom.'],
+   ['Alejar', 'Zoom out'], ['Acercar', 'Zoom in'], ['Ver todo', 'Fit'], ['Marcas', 'Brands'],
+   ['Fijar esta fuente arriba de la lista', 'Pin this font to the top of the list'], ['Quitar de las fuentes fijadas', 'Unpin this font'],
+   ['Guarda una marca abajo (o importa un .sbmarca) y aparece aquí.', 'Save a brand below (or import a .sbmarca) and it shows up here.'],
+   ['Los colores que usas se guardan solos como muestras (en la marca activa). Clic en un cuadro de color = selector con campo para pegar #HEX, RGB o CMYK. Clic derecho en una muestra = quitarla.',
+    'Colors you use are saved as swatches automatically (in the active brand). Click a color box = picker with a field to paste #HEX, RGB or CMYK. Right-click a swatch to remove it.'],
+   ['Pega #HEX, RGB o CMYK. Clic derecho en una muestra = quitarla.', 'Paste #HEX, RGB or CMYK. Right-click a swatch to remove it.'],
+   ['Pon el cabezal dentro de un subtítulo para cortarlo.', 'Put the playhead inside a caption to cut it.'],
+   ['El corte queda demasiado cerca del borde del subtítulo.', 'The cut is too close to the edge of the caption.'],
+   ['Elige un subtítulo que tenga otro después.', 'Pick a caption that has another one after it.'],
+   ['Actualizar ahora', 'Update now'], ['Reintentar', 'Retry'],
+   ['Espera a que termine la exportación o la transcripción y vuelve a pulsar.', 'Wait for the export or transcription to finish and press again.']
+  ].forEach(function (p) { EX[p[0]] = p[1]; });
   // frases dentro de mensajes que cambian (números, nombres…)
   var RX = [
+    [/^Subtítulo (\d+) cortado en (\S+)\.$/, 'Caption $1 cut at $2.'],
+    [/^Descargando la versión (\S+)… (.*)$/, 'Downloading version $1… $2'],
+    [/^Instalando la versión (\S+)….*$/, 'Installing version $1… the app closes and reopens by itself.'],
+    [/^No se pudo actualizar: /, "Couldn't update: "],
+    [/^★ Fijadas$/, '★ Pinned'],
     [/^Vista previa · subtítulo (\d+) de (\d+) \(clic en la lista para cambiar\)$/, 'Preview · caption $1 of $2 (click the list to change)'],
     [/— elegir de la lista/, '— pick from the list'], [/\(no instalada en este PC\)/, '(not installed on this PC)'],
     [/^(\d+) fuentes$/, '$1 fonts'], [/\(vacía\)/, '(empty)'], [/^Incluida \((vertical|horizontal)\)$/, 'Built-in ($1)'],

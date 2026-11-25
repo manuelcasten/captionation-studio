@@ -102,6 +102,28 @@
   .fmtOpt.on { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc) inset; }
   .fmtOpt b { display:block; }
   .fmtOpt span { color:var(--dim); font-size:11px; }
+  #tlWrap { flex:0 0 auto; }
+  #tlBar { display:flex; gap:6px; align-items:center; margin-bottom:4px; }
+  #tlBar button { padding:3px 8px; }
+  #tl { position:relative; height:74px; overflow-x:auto; overflow-y:hidden; background:#121214; border:1px solid var(--line); }
+  #tlInner { position:relative; height:100%; min-width:100%; }
+  #tlRuler { position:absolute; left:0; right:0; top:0; height:18px; border-bottom:1px solid var(--line); cursor:pointer; }
+  #tlRuler span { position:absolute; top:2px; font:10px Consolas, monospace; color:var(--dim); padding-left:3px; border-left:1px solid #2c2c31; height:16px; white-space:nowrap; }
+  #tlTrack { position:absolute; left:0; right:0; top:22px; bottom:4px; cursor:pointer; }
+  .blk { position:absolute; top:0; bottom:0; background:#1f2a44; border:1px solid #2f4fa0; color:#dfe6ff; font-size:11px; padding:3px 7px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; cursor:grab; user-select:none; }
+  .blk b { color:#fff; }
+  .blk.on { background:var(--acc); border-color:#fff; color:#fff; }
+  .blk .h { position:absolute; top:0; bottom:0; width:7px; cursor:ew-resize; }
+  .blk .h.l { left:0; } .blk .h.r { right:0; }
+  .blk:hover .h { background:#ffffff30; }
+  #tlHead { position:absolute; top:0; bottom:0; width:2px; background:var(--yel); pointer-events:none; }
+  button.pin { padding:3px 7px; color:var(--dim); }
+  button.pin.on { color:var(--yel); }
+  .brandHead { color:var(--dim); margin:10px 0 4px; }
+  #brandBar { display:flex; flex-wrap:wrap; gap:5px; }
+  #brandBar button { padding:5px 10px; }
+  #brandBar button.on { background:var(--acc); border-color:var(--acc); color:#fff; }
+  #brandBar .none { color:var(--dim); font-size:11px; }
   ::-webkit-scrollbar { width:10px; height:10px; } ::-webkit-scrollbar-thumb { background:#2a2a30; } ::-webkit-scrollbar-track { background:transparent; }
 </style>
 </head>
@@ -126,6 +148,15 @@
       <input type="range" id="scrub" min="0" max="1000" step="1" value="0">
       <span id="tcNow">00:00.00 / 00:00.00</span>
       <div class="seg" id="pvFmt" title="Formato cuando solo hay audio"><button data-f="v">9:16</button><button data-f="h">16:9</button></div>
+    </div>
+    <div id="tlWrap">
+      <div id="tlBar">
+        <button id="btnCut" title="Divide el subtítulo en el cabezal (tecla C)">✂ Cortar</button>
+        <button id="btnJoin" title="Une el subtítulo elegido con el siguiente">Unir con el siguiente</button>
+        <span class="hint" style="flex:1;margin:0">Arrastra un bloque para moverlo y sus bordes para cambiar la duración. Ctrl + rueda = zoom.</span>
+        <button id="tlOut" title="Alejar">−</button><button id="tlFit" title="Ver todo">Ver todo</button><button id="tlIn" title="Acercar">+</button>
+      </div>
+      <div id="tl"><div id="tlInner"><div id="tlRuler"></div><div id="tlTrack"></div><div id="tlHead"></div></div></div>
     </div>
     <div id="listWrap">
       <div id="listHead">
@@ -185,9 +216,11 @@
         <div class="styleCard" data-card="karaoke"><div class="s3">LA <span>VIDA</span> LOCA</div><div class="t">Karaoke</div></div>
       </div>
       <input type="hidden" id="fontReg"><input type="hidden" id="fontBold">
-      <div class="row" style="margin-top:8px"><label>Fuente regular</label><select class="fontSel" data-for="fontReg" style="flex:1;min-width:0"></select></div>
-      <div class="row"><label>Fuente bold</label><select class="fontSel" data-for="fontBold" style="flex:1;min-width:0"></select></div>
+      <div class="row" style="margin-top:8px"><label>Fuente regular</label><select class="fontSel" data-for="fontReg" style="flex:1;min-width:0"></select><button class="pin" data-for="fontReg" title="Fijar esta fuente arriba de la lista">☆</button></div>
+      <div class="row"><label>Fuente bold</label><select class="fontSel" data-for="fontBold" style="flex:1;min-width:0"></select><button class="pin" data-for="fontBold" title="Fijar esta fuente arriba de la lista">☆</button></div>
       <div class="row"><button id="btnFonts">Actualizar lista de fuentes</button><span class="path" id="fontInfo"></span></div>
+      <div class="brandHead">Marcas</div>
+      <div id="brandBar"></div>
       <div class="row" style="margin-top:8px"><label>Preset de marca</label><select id="preset" style="flex:1"><option value="">— ninguno —</option></select></div>
       <div class="row">
         <input type="text" id="presetName" placeholder="Nombre (ej. MiMarca)" style="flex:1">
@@ -238,8 +271,8 @@
       <div class="row"><label>Regular</label><input type="color" class="col" id="colReg" value="#ffffff">
                        <label style="flex:0 0 auto">Bold</label><input type="color" class="col" id="colBold" value="#ffffff"></div>
       <div class="row"><label>Borde (grosor px)</label><input type="number" id="bordeW" min="0" step="1" value="0"><input type="color" class="col" id="colBorde" value="#000000"></div>
-      <div class="row" style="align-items:flex-start"><div id="swatches"></div><button id="btnSwAdd" title="Guarda el color marcado como muestra">+ Muestra</button></div>
-      <p class="hint">Elige un cuadro de color (queda marcado en azul) y haz clic en una muestra. Clic derecho en una muestra = borrarla.</p>
+      <div class="row" style="align-items:flex-start"><div id="swatches"></div></div>
+      <p class="hint">Los colores que usas se guardan solos como muestras (en la marca activa). Clic en un cuadro de color = selector con campo para pegar #HEX, RGB o CMYK. Clic derecho en una muestra = quitarla.</p>
     </details>
 
     <details>
@@ -269,6 +302,7 @@
     <div id="credit"><span class="wide">Captionation Studio</span> · by <b>Manuel Aldana</b> · <a href="#" id="siteLink" style="color:var(--acc)">manuelcasten.github.io</a></div>
   </aside>
 </main>
+<script src="picker.js"></script>
 <script src="render.js"></script>
 <script src="app.js"></script>
 <script src="i18n.js"></script>

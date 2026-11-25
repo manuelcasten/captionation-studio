@@ -161,10 +161,32 @@
     $('fontInfo').textContent = list.length + ' fuentes';
     syncFontSel();
   }
+  // fuentes fijadas (★): salen primero en las dos listas
+  const getPins = () => { try { return JSON.parse(localStorage.getItem('sb_fontPins') || '[]'); } catch (e) { return []; } };
+  document.querySelectorAll('button.pin').forEach((b) => {
+    b.onclick = () => {
+      const ps = $(b.dataset.for).value; if (!ps) return;
+      let p = getPins();
+      p = p.includes(ps) ? p.filter((x) => x !== ps) : [ps].concat(p);
+      try { localStorage.setItem('sb_fontPins', JSON.stringify(p)); } catch (e) {}
+      syncFontSel();
+    };
+  });
   function syncFontSel() {
     document.querySelectorAll('.sbRange').forEach((r) => { r.value = $(r.dataset.for).value; });
+    const pins = getPins();
+    document.querySelectorAll('button.pin').forEach((b) => {
+      const on = pins.includes($(b.dataset.for).value);
+      b.classList.toggle('on', on); b.textContent = on ? '★' : '☆';
+      b.title = on ? 'Quitar de las fuentes fijadas' : 'Fijar esta fuente arriba de la lista';
+    });
     document.querySelectorAll('.fontSel').forEach((s) => {
       s.innerHTML = '';
+      if (pins.length) {
+        const g = document.createElement('optgroup'); g.label = '★ Fijadas';
+        pins.forEach((ps) => { const f = fontList.find((x) => x.ps === ps); const o = document.createElement('option'); o.value = ps; o.textContent = '★ ' + (f ? f.label : ps); g.appendChild(o); });
+        s.appendChild(g);
+      }
       let grp = null, fam = '';
       fontList.forEach((f) => {
         const fm = f.label.split(' ')[0];
@@ -172,12 +194,12 @@
         const o = document.createElement('option'); o.value = f.ps; o.textContent = f.label + '  (' + f.ps + ')'; grp.appendChild(o);
       });
       const cur = $(s.dataset.for).value || '';
-      if (cur && !fontList.some((f) => f.ps === cur)) { const o = document.createElement('option'); o.value = cur; o.textContent = cur + '  (no instalada en este PC)'; s.insertBefore(o, s.firstChild); }
+      if (cur && !fontList.some((f) => f.ps === cur) && !pins.includes(cur)) { const o = document.createElement('option'); o.value = cur; o.textContent = cur + '  (no instalada en este PC)'; s.insertBefore(o, s.firstChild); }
       s.value = cur;
     });
   }
   document.querySelectorAll('.fontSel').forEach((s) => {
-    s.onchange = () => { if (!s.value) return; $(s.dataset.for).value = s.value; save(); loadFaces(); };
+    s.onchange = () => { if (!s.value) return; $(s.dataset.for).value = s.value; save(); loadFaces(); syncFontSel(); };
   });
   $('btnFonts').onclick = () => { $('fontInfo').textContent = 'Buscando fuentes…'; setTimeout(scanFonts, 30); };
 
@@ -229,8 +251,23 @@
     s.innerHTML = '<option value="">— ninguno —</option>';
     Object.keys(p).sort().forEach((n) => { const o = document.createElement('option'); o.value = n; o.textContent = n; s.appendChild(o); });
     if (sel !== undefined) s.value = sel;
+    else if (!p[s.value]) s.value = '';
+    renderBrandBar();
+  }
+  // barra de marcas: un clic cambia de marca (estilo, fuentes, colores y muestras)
+  function renderBrandBar() {
+    const bar = $('brandBar'), p = getPresets(), names = Object.keys(p).sort(), act = $('preset').value;
+    bar.innerHTML = '';
+    if (!names.length) { const d = document.createElement('span'); d.className = 'none'; d.textContent = 'Guarda una marca abajo (o importa un .sbmarca) y aparece aquí.'; bar.appendChild(d); return; }
+    names.forEach((n) => {
+      const b = document.createElement('button'); b.textContent = n; b.classList.toggle('on', n === act);
+      b.onclick = () => { $('preset').value = n; $('preset').onchange(); };
+      bar.appendChild(b);
+    });
   }
   $('preset').onchange = () => {
+    renderBrandBar();
+    try { localStorage.setItem('sb_activeBrand', $('preset').value); } catch (e) {}
     const p = getPresets()[$('preset').value];
     if (!p) return;
     applyStyle(p.style); renderList();
@@ -243,7 +280,7 @@
     const n = $('presetName').value.trim() || $('preset').value;
     if (!n) { status('Escribe un nombre para el preset.', 'err'); return; }
     const p = getPresets(); p[n] = { style: collectStyle(), palette: palette.slice() }; setPresets(p);
-    renderPresets(n); status('Preset "' + n + '" guardado.', 'ok');
+    renderPresets(n); try { localStorage.setItem('sb_activeBrand', n); } catch (e) {} status('Preset "' + n + '" guardado.', 'ok');
   };
   $('btnPresetDel').onclick = () => {
     const n = $('preset').value; if (!n) return;
@@ -269,16 +306,30 @@
     } catch (e) { status('Ese archivo no es un archivo de marcas válido.', 'err'); }
   };
 
-  // ---------- muestras de color ----------
+  // ---------- muestras de color (se guardan solas al usar un color) ----------
   function renderSwatches() {
     const box = $('swatches'); box.innerHTML = '';
-    palette.forEach((hex, i) => {
-      const d = document.createElement('div'); d.className = 'sw'; d.style.background = hex; d.title = hex;
-      d.onclick = () => { $(activeColor).value = hex; $(activeColor).dispatchEvent(new Event('input', { bubbles: true })); save(); };
-      d.oncontextmenu = (e) => { e.preventDefault(); palette.splice(i, 1); renderSwatches(); save(); };
+    palette.forEach((hex) => {
+      const d = document.createElement('div'); d.className = 'sw'; d.style.background = hex; d.title = hex.toUpperCase();
+      d.onclick = () => { $(activeColor).value = hex; $(activeColor).dispatchEvent(new Event('input', { bubbles: true })); $(activeColor).dispatchEvent(new Event('change', { bubbles: true })); save(); };
+      d.oncontextmenu = (e) => { e.preventDefault(); removeColor(hex); };
       box.appendChild(d);
     });
   }
+  // la paleta también se guarda en la marca activa
+  function storePalette() {
+    renderSwatches(); save();
+    const n = $('preset').value, p = getPresets();
+    if (n && p[n]) { p[n].palette = palette.slice(); setPresets(p); }
+  }
+  function addColor(hex) {
+    hex = String(hex).toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(hex) || palette.includes(hex)) return;
+    palette.push(hex);
+    if (palette.length > 30) palette.shift();
+    storePalette();
+  }
+  function removeColor(hex) { palette = palette.filter((c) => c !== hex); storePalette(); }
   function setActive(id) {
     activeColor = id;
     document.querySelectorAll('input.col').forEach((x) => x.classList.toggle('active', x.id === id));
@@ -287,7 +338,6 @@
     x.addEventListener('focus', () => setActive(x.id));
     x.addEventListener('click', () => setActive(x.id));
   });
-  $('btnSwAdd').onclick = () => { const v = $(activeColor).value.toLowerCase(); if (!palette.includes(v)) palette.push(v); renderSwatches(); save(); };
 
   // ---------- pegar códigos de color del manual de marca: #0A5CFF, 0a5cff, #FFF, rgb(10, 92, 255), CMYK ----------
   function parseColor(s) {
@@ -321,8 +371,10 @@
       x.value = p;
       x.dispatchEvent(new Event('input', { bubbles: true })); x.dispatchEvent(new Event('change', { bubbles: true }));
       save();
-      if (final) h.value = p.toUpperCase();
+      if (final) { h.value = p.toUpperCase(); addColor(p); }
     };
+    // selector propio (en vez del de Windows): cuadro de color + campo para pegar + muestras
+    window.CapPicker.attach(x, { parse: parseColor, palette: () => palette, onCommit: addColor, onRemove: removeColor });
     h.addEventListener('focus', () => { setActive(x.id); h.select(); });
     h.addEventListener('input', () => apply(false));
     h.addEventListener('change', () => apply(true));
@@ -471,7 +523,7 @@
     if (!subs.length) {
       const d = document.createElement('div'); d.className = 'empty';
       d.textContent = media ? 'Pulsa "Transcribir" o carga un .txt / .srt.' : 'Abre un video o audio para empezar.';
-      list.appendChild(d); queuePv(); return;
+      list.appendChild(d); renderTimeline(); queuePv(); return;
     }
     subs.forEach((s, idx) => {
       const row = document.createElement('div'); row.className = 'sub' + (idx === selIndex ? ' on' : '');
@@ -527,11 +579,130 @@
       row.append(n, tIn('start'), tIn('end'), ws, ed, add, del);
       list.appendChild(row);
     });
+    renderTimeline();
     queuePv();
   }
   function markRow() {
     document.querySelectorAll('#list .sub').forEach((r) => r.classList.toggle('on', +r.dataset.i === selIndex));
+    document.querySelectorAll('#tlTrack .blk').forEach((b) => b.classList.toggle('on', +b.dataset.i === selIndex));
   }
+
+  // ---------- línea de tiempo: mover, recortar, cortar y unir ----------
+  let pps = 0, tlFitMode = true; // píxeles por segundo
+  const tl = $('tl');
+  function tlFit() { pps = Math.max(4, (tl.clientWidth - 4) / Math.max(1, duration())); }
+  function renderTimeline() {
+    if (tlFitMode || !pps) tlFit();
+    const D = duration(), inner = $('tlInner');
+    inner.style.width = Math.max(tl.clientWidth, Math.ceil(D * pps) + 20) + 'px';
+    // regla: una marca cada 1, 2, 5, 10, 30 o 60 s según el zoom
+    const step = [0.5, 1, 2, 5, 10, 15, 30, 60, 120].find((s) => s * pps >= 64) || 300;
+    const rul = $('tlRuler'); rul.innerHTML = '';
+    for (let t = 0; t <= D + 0.001; t += step) {
+      const sp = document.createElement('span'); sp.style.left = (t * pps) + 'px';
+      sp.textContent = step < 1 ? fmtT(t * 1000) : clock(t).replace(/\.\d+$/, ''); rul.appendChild(sp);
+    }
+    const tr = $('tlTrack'); tr.innerHTML = '';
+    subs.forEach((s, i) => {
+      const b = document.createElement('div'); b.className = 'blk' + (i === selIndex ? ' on' : ''); b.dataset.i = i;
+      placeBlk(b, s);
+      b.innerHTML = '<div class="h l"></div>' + s.tokens.map((t) => t.b ? '<b>' + esc(t.w) + '</b>' : esc(t.w)).join(' ') + '<div class="h r"></div>';
+      b.title = fmtT(s.start) + ' → ' + fmtT(s.end);
+      b.addEventListener('pointerdown', (e) => blkDrag(e, b, s));
+      tr.appendChild(b);
+    });
+    moveHead();
+  }
+  const esc = (x) => x.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  function placeBlk(b, s) { b.style.left = (s.start / 1000 * pps) + 'px'; b.style.width = Math.max(4, (s.end - s.start) / 1000 * pps) + 'px'; }
+  function moveHead(follow) {
+    const x = curTime() * pps;
+    $('tlHead').style.left = x + 'px';
+    if (follow && (x < tl.scrollLeft || x > tl.scrollLeft + tl.clientWidth - 30)) tl.scrollLeft = x - 40;
+  }
+  function blkDrag(e, b, s) {
+    if (e.button !== 0) return;
+    e.preventDefault(); e.stopPropagation();
+    const i = subs.indexOf(s), prev = subs[i - 1], next = subs[i + 1];
+    const mode = e.target.classList.contains('l') ? 'l' : e.target.classList.contains('r') ? 'r' : 'm';
+    const x0 = e.clientX, s0 = s.start, e0 = s.end, MIN = 200;
+    const lo = prev ? prev.end : 0, hi = next ? next.start : duration() * 1000;
+    const head = curTime() * 1000;
+    const snap = (v) => Math.abs(v - head) * pps / 1000 < 8 ? Math.round(head) : v; // se pega al cabezal
+    let moved = false;
+    selIndex = i; markRow();
+    b.setPointerCapture(e.pointerId);
+    b.onpointermove = (ev) => {
+      const d = (ev.clientX - x0) / pps * 1000;
+      if (!moved && Math.abs(ev.clientX - x0) < 3) return;
+      moved = true;
+      if (mode === 'm') { const len = e0 - s0; let st = snap(s0 + d); st = Math.max(lo, Math.min(hi - len, st)); s.start = Math.round(st); s.end = Math.round(st + len); }
+      else if (mode === 'l') s.start = Math.round(Math.max(lo, Math.min(s.end - MIN, snap(s0 + d))));
+      else s.end = Math.round(Math.min(hi, Math.max(s.start + MIN, snap(e0 + d))));
+      placeBlk(b, s); b.title = fmtT(s.start) + ' → ' + fmtT(s.end);
+      if (!media) vT = (mode === 'r' ? s.end : s.start) / 1000; else vid.currentTime = (mode === 'r' ? s.end - 1 : s.start) / 1000;
+      queuePv();
+    };
+    b.onpointerup = (ev) => {
+      b.onpointermove = b.onpointerup = null;
+      if (!moved) { const r = $('tlInner').getBoundingClientRect(); seekT((ev.clientX - r.left) / pps); return; }
+      // con un cambio de duración las palabras se reparten de nuevo (si el texto se movió entero, se conservan)
+      if (mode !== 'm' && s.wordStarts) { const k = (s.end - s.start) / (e0 - s0); if (mode === 'l') { const off = (s.start - s0) / 1000; s.wordStarts = s.wordStarts.map((w) => Math.max(0, w - off)); } else if (k < 1) s.wordStarts = s.wordStarts.map((w) => w * k); }
+      changed();
+    };
+  }
+  function seekT(t) { t = Math.max(0, Math.min(duration(), t)); if (media) vid.currentTime = t; else vT = t; queuePv(); }
+  $('tlTrack').addEventListener('pointerdown', (e) => { if (e.target.id === 'tlTrack') { const r = $('tlInner').getBoundingClientRect(); seekT((e.clientX - r.left) / pps); } });
+  $('tlRuler').addEventListener('pointerdown', (e) => {
+    const r = $('tlInner').getBoundingClientRect(), go = (ev) => seekT((ev.clientX - r.left) / pps);
+    go(e); $('tlRuler').setPointerCapture(e.pointerId);
+    $('tlRuler').onpointermove = go; $('tlRuler').onpointerup = () => { $('tlRuler').onpointermove = null; };
+  });
+  function zoom(f, cx) {
+    const old = pps, mx = cx === undefined ? tl.clientWidth / 2 : cx, t = (tl.scrollLeft + mx) / old;
+    tlFitMode = false; pps = Math.max(4, Math.min(600, pps * f)); renderTimeline(); tl.scrollLeft = t * pps - mx;
+  }
+  tl.addEventListener('wheel', (e) => {
+    if (e.ctrlKey) { e.preventDefault(); zoom(e.deltaY < 0 ? 1.25 : 0.8, e.clientX - tl.getBoundingClientRect().left); }
+    else if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); tl.scrollLeft += e.deltaY; }
+  }, { passive: false });
+  $('tlIn').onclick = () => zoom(1.5); $('tlOut').onclick = () => zoom(1 / 1.5);
+  $('tlFit').onclick = () => { tlFitMode = true; renderTimeline(); tl.scrollLeft = 0; };
+  window.addEventListener('resize', () => { if (tlFitMode) renderTimeline(); });
+
+  // cortar en el cabezal: las palabras que ya se dijeron quedan en el primero, el resto en el segundo
+  function cutAtHead() {
+    const T = Math.round(curTime() * 1000);
+    const i = subs.findIndex((s) => s.start < T && T < s.end);
+    if (i < 0) { status('Pon el cabezal dentro de un subtítulo para cortarlo.', 'err'); return; }
+    const s = subs[i];
+    if (T - s.start < 100 || s.end - T < 100) { status('El corte queda demasiado cerca del borde del subtítulo.', 'err'); return; }
+    const tm = R.wordTimes(s), rel = (T - s.start) / 1000;
+    let k = tm.findIndex((w) => w >= rel); if (k < 0) k = s.tokens.length;
+    k = Math.max(1, Math.min(s.tokens.length - 1, k));
+    const a = { start: s.start, end: T, tokens: s.tokens.slice(0, k).map((t) => Object.assign({}, t)) };
+    const b = { start: T, end: s.end, tokens: s.tokens.slice(k).map((t) => Object.assign({}, t)) };
+    if (s.tokens.length < 2) { b.tokens = a.tokens.map((t) => Object.assign({}, t)); }
+    else if (s.wordStarts && s.wordStarts.length === s.tokens.length) {
+      a.wordStarts = s.wordStarts.slice(0, k);
+      b.wordStarts = s.wordStarts.slice(k).map((w) => Math.max(0, w - rel));
+    }
+    subs.splice(i, 1, a, b); selIndex = i + 1;
+    status('Subtítulo ' + (i + 1) + ' cortado en ' + fmtT(T) + '.', 'ok');
+    changed();
+  }
+  function joinNext() {
+    const i = selIndex >= 0 ? selIndex : subs.findIndex((s) => s.start <= curTime() * 1000 && curTime() * 1000 < s.end);
+    const s = subs[i], n = subs[i + 1];
+    if (!s || !n) { status('Elige un subtítulo que tenga otro después.', 'err'); return; }
+    const m = { start: s.start, end: n.end, tokens: s.tokens.concat(n.tokens).map((t) => Object.assign({}, t)) };
+    if (s.wordStarts && n.wordStarts && s.wordStarts.length === s.tokens.length && n.wordStarts.length === n.tokens.length)
+      m.wordStarts = s.wordStarts.concat(n.wordStarts.map((w) => w + (n.start - s.start) / 1000));
+    subs.splice(i, 2, m); selIndex = i;
+    changed();
+  }
+  $('btnCut').onclick = cutAtHead;
+  $('btnJoin').onclick = joinNext;
   function insertAfter(idx) {
     const prev = subs[idx], next = subs[idx + 1];
     const st = prev ? prev.end : Math.round(curTime() * 1000);
@@ -616,6 +787,7 @@
       }
     }
     $('tcNow').textContent = clock(T) + ' / ' + clock(duration());
+    moveHead(media && !vid.paused);
     if (document.activeElement !== $('scrub')) $('scrub').value = Math.round(T / duration() * 1000);
     $('btnPlay').textContent = vid.paused ? '▶' : '❚❚';
     if (media && !vid.paused) queuePv();
@@ -631,7 +803,9 @@
     updateExpInfo();
   }
   document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && !/INPUT|SELECT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)) { e.preventDefault(); $('btnPlay').onclick(); }
+    const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
+    if (e.code === 'Space' && !typing && document.activeElement.tagName !== 'BUTTON') { e.preventDefault(); $('btnPlay').onclick(); }
+    if (e.code === 'KeyC' && !typing && !e.ctrlKey && !e.metaKey && !window.CapPicker.isOpen()) { e.preventDefault(); cutAtHead(); }
   });
   document.addEventListener('input', () => queuePv());
   document.addEventListener('change', () => queuePv());
@@ -1053,7 +1227,7 @@
   window.CS = { openMedia, runExport, getSubs: () => subs, setSubs: (s) => { subs = s; changed(); }, seek: (t) => { vid.currentTime = t; queuePv(); } };
 
   // azul = acción nueva · amarillo = ajustar
-  ['btnTxt', 'btnPresetExport', 'btnPresetImport', 'btnSwAdd'].forEach((id) => $(id).classList.add('primary'));
+  ['btnTxt', 'btnPresetExport', 'btnPresetImport'].forEach((id) => $(id).classList.add('primary'));
   ['btnRule', 'btnPresetSave', 'btnFonts'].forEach((id) => $(id).classList.add('adj'));
 
   // ---------- inicio ----------
@@ -1065,20 +1239,43 @@
     STYLE_IDS.concat(UI_IDS, ['caps', 'safeZone']).forEach((k) => { $(k).addEventListener('change', save); });
     load();
     setAlign(align); setActive(activeColor);
-    renderSwatches(); renderPresets(); syncRuleUI(); syncFmt(); syncFmtSeg(); syncFontSel(); loadFaces();
+    renderSwatches(); renderPresets(getPresets()[localStorage.getItem('sb_activeBrand') || ''] ? localStorage.getItem('sb_activeBrand') : ''); syncRuleUI(); syncFmt(); syncFmtSeg(); syncFontSel(); loadFaces();
     renderList();
     if (!fs.existsSync(INFO.ffmpeg)) status('Falta ffmpeg (' + INFO.ffmpeg + '). Reinstala Captionation Studio.', 'err');
-    // aviso de versión nueva (version.json de la web; sin internet no pasa nada)
+    // actualizaciones: lee version.json de la web; si hay versión nueva, se descarga e instala sola
+    // (sin internet no pasa nada). CS_UPDATE_JSON permite probarlo con un archivo local.
     setTimeout(async () => {
       try {
-        const j = await getJson(SITE + 'version.json?t=' + Date.now());
+        const src = process.env.CS_UPDATE_JSON || SITE + 'version.json?t=' + Date.now();
+        const j = /^https:/.test(src) ? await getJson(src) : JSON.parse(fs.readFileSync(src, 'utf8').replace(/^﻿/, ''));
         const c = j && j.studio;
         if (!c || !newer(c.version, INFO.version)) return;
         $('updTxt').textContent = 'Nueva versión ' + c.version + ' disponible' + (c.notes ? ': ' + c.notes : '');
-        $('updBtn').onclick = () => openUrl(c.url || SITE);
+        $('updBtn').textContent = INFO.packaged && c.exe ? 'Actualizar ahora' : 'Descargar';
+        $('updBtn').onclick = () => { if (INFO.packaged && c.exe) updateNow(c); else openUrl(c.url || SITE); };
         $('updBar').classList.add('on');
       } catch (e) {}
     }, 1500);
+    async function updateNow(c) {
+      if (exporting || wBusy) { $('updTxt').textContent = 'Espera a que termine la exportación o la transcripción y vuelve a pulsar.'; return; }
+      $('updBtn').disabled = true;
+      const file = path.join(os.tmpdir(), 'Instalador Captionation Studio ' + c.version + '.exe');
+      try {
+        if (/^https:/.test(c.exe)) {
+          wCancel = false;
+          await wDownload(c.exe, file + '.part', (g, t) => { $('updTxt').textContent = 'Descargando la versión ' + c.version + '… ' + mb(g) + (t ? ' de ' + mb(t) : ''); });
+          if (c.sha256 && (await wSha256(file + '.part')) !== String(c.sha256).toLowerCase()) throw new Error('La descarga no es válida (huella distinta). Intenta de nuevo.');
+          fs.renameSync(file + '.part', file);
+        } else fs.copyFileSync(c.exe, file);
+        saveProject(); save();
+        $('updTxt').textContent = 'Instalando la versión ' + c.version + '… la app se cierra y se vuelve a abrir sola.';
+        await new Promise((r) => setTimeout(r, 900));
+        await ipcRenderer.invoke('install-update', file);
+      } catch (e) {
+        $('updTxt').textContent = 'No se pudo actualizar: ' + e.message;
+        $('updBtn').disabled = false; $('updBtn').textContent = 'Reintentar';
+      }
+    }
     const arg = process.argv.find((a) => /\.(mp4|mov|m4v|mkv|webm|avi|mp3|wav|m4a)$/i.test(a));
     if (arg && fs.existsSync(arg)) openMedia(arg);
   })();

@@ -38,6 +38,13 @@ ipcMain.handle('save-dialog', async (e, opts) => {
 });
 ipcMain.handle('show-item', (e, p) => { shell.showItemInFolder(p); });
 ipcMain.handle('open-external', (e, u) => { if (/^https:\/\//.test(u)) shell.openExternal(u); });
+// actualización: corre el instalador nuevo en silencio (/S), que reemplaza la app y la vuelve a abrir (--force-run)
+ipcMain.handle('install-update', (e, file) => {
+  if (!/\.exe$/i.test(file) || !fs.existsSync(file)) return false;
+  require('child_process').spawn(file, ['/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref();
+  setTimeout(() => app.quit(), 300);
+  return true;
+});
 ipcMain.handle('confirm', async (e, msg) => {
   const r = await dialog.showMessageBox(win, { type: 'question', buttons: ['OK', 'Cancelar'], defaultId: 0, cancelId: 1, message: msg });
   return r.response === 0;
@@ -46,6 +53,10 @@ ipcMain.handle('confirm', async (e, msg) => {
 // pruebas automáticas: CS_TEST=archivo.js ejecuta ese guion en la ventana (ver tools/prueba-app.js)
 ipcMain.handle('test-shot', async (e, file) => { const img = await win.webContents.capturePage(); fs.writeFileSync(file, img.toPNG()); return file; });
 ipcMain.handle('test-quit', (e, code) => { app.exit(code || 0); });
+
+// una sola ventana: si ya está abierta, se enfoca (así la actualización nunca choca con otra copia abierta)
+if (!process.env.CS_TEST && !app.requestSingleInstanceLock()) app.quit();
+app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 
 app.whenReady().then(() => {
   createWindow();

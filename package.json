@@ -1,7 +1,7 @@
 {
   "name": "captionation-studio",
   "productName": "Captionation Studio",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Subtítulos con palabra en bold, transcripción local y exportación con fondo transparente.",
   "author": "Manuel Aldana",
   "license": "MIT",
