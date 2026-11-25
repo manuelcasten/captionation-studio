@@ -134,12 +134,14 @@
    ['Pon el cabezal dentro de un subtítulo para cortarlo.', 'Put the playhead inside a caption to cut it.'],
    ['El corte queda demasiado cerca del borde del subtítulo.', 'The cut is too close to the edge of the caption.'],
    ['Elige un subtítulo que tenga otro después.', 'Pick a caption that has another one after it.'],
-   ['Actualizar ahora', 'Update now'], ['Reintentar', 'Retry'],
+   ['Actualizar ahora', 'Update now'], ['[ Entrada', '[ In'], ['Salida ]', 'Out ]'], ['Quitar marcas', 'Clear marks'], ['Marca el inicio de la parte a exportar en el cabezal (tecla I)', 'Marks the start of the part to export at the playhead (I key)'], ['Marca el final de la parte a exportar en el cabezal (tecla O)', 'Marks the end of the part to export at the playhead (O key)'], ['Quita las marcas: se exporta todo', 'Clears the marks: the whole video is exported'], ['Qué exportar', 'What to export'], ['Todo el video', 'Whole video'], ['Solo entre [ entrada y salida ]', 'Only between [ In and Out ]'], ['+ Abrir video', '+ Open video'], ['Abrir otro video en una pestaña nueva', 'Open another video in a new tab'], ['Cerrar (el trabajo queda guardado)', 'Close (your work is saved)'], ['Espera a que termine la exportación o la transcripción para cambiar de video.', 'Wait for the export or transcription to finish before switching videos.'], ['Arrastra = mover · bordes = duración · doble clic = editar · Ctrl+rueda = zoom', 'Drag = move · edges = duration · double-click = edit · Ctrl+wheel = zoom'], ['Reintentar', 'Retry'],
    ['Espera a que termine la exportación o la transcripción y vuelve a pulsar.', 'Wait for the export or transcription to finish and press again.']
   ].forEach(function (p) { EX[p[0]] = p[1]; });
   // frases dentro de mensajes que cambian (números, nombres…)
   var RX = [
     [/^Subtítulo (\d+) cortado en (\S+)\.$/, 'Caption $1 cut at $2.'],
+    [/ · solo (\S+) → (\S+) \((.+?)\)/, ' · only $1 → $2 ($3)'],
+    [/Es solo el tramo (\S+) → (\S+): ponlo en (\S+) de tu línea de tiempo\./, 'It is only the part $1 → $2: place it at $3 on your timeline.'],
     [/^Descargando la versión (\S+)… (.*)$/, 'Downloading version $1… $2'],
     [/^Instalando la versión (\S+)….*$/, 'Installing version $1… the app closes and reopens by itself.'],
     [/^No se pudo actualizar: /, "Couldn't update: "],
