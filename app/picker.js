@@ -121,7 +121,7 @@
     try { input.scrollIntoView({ block: 'nearest' }); } catch (e) {}
     const r = input.getBoundingClientRect();
     let x = r.left, y = r.bottom + 4;
-    if (x + 238 > innerWidth - 4) x = innerWidth - 242;
+    if (x + 248 > document.documentElement.clientWidth) x = document.documentElement.clientWidth - 248;
     if (y + el.offsetHeight > innerHeight - 4) y = Math.max(4, r.top - el.offsetHeight - 4);
     el.style.left = Math.max(4, x) + 'px'; el.style.top = y + 'px';
 
